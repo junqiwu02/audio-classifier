@@ -8,6 +8,7 @@ import librosa.display
 # %%
 (rate,sig) = wav.read("dataset/male.wav")
 mfcc_feat = mfcc(sig,rate)
+mfcc_feat.shape
 fbank_feat = logfbank(sig,rate)
 
 print(fbank_feat[1:3,:])
