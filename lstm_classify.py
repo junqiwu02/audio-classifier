@@ -25,7 +25,7 @@ for f in tqdm(natsort.os_sorted(filelist)[:100]):
 # Pad shorter sequences with 0s and cut longer sequences
 tensor_len = max(map(len, mfccs)) // 4
 
-padded = []
+resized = []
 for x in mfccs:
     res = None
     if len(x) < tensor_len:
@@ -33,8 +33,8 @@ for x in mfccs:
         res[:x.shape[0], :x.shape[1]] = x
     else:
         res = np.array(x[:tensor_len])
-    padded.append(res)
-X = np.array(padded)
+    resized.append(res)
+X = np.array(resized)
 X.shape
 # %%
 # Normalize
