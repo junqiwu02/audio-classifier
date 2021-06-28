@@ -16,27 +16,30 @@ import pandas as pd
 # %%
 # Read files and extract mfcc
 filelist = glob.glob('dataset/dev_splits_complete/wav/*.wav')
-x_list = []
+mfccs = []
 for f in tqdm(natsort.os_sorted(filelist)[:100]):
     rate, sig = wav.read(f)
     mfcc_feat = mfcc(sig,rate, nfft=1200)
-    x_list.append(mfcc_feat)
+    mfccs.append(mfcc_feat)
 # %%
-# Pad shorter sequences with 0s
-length = max(map(len, x_list))
-print(length)
-x_list_padded = []
-for xi in x_list:
-    res = np.zeros((length, 13))
-    res[:xi.shape[0], :xi.shape[1]] = xi
-    x_list_padded.append(res)
-x = np.array(x_list_padded)
-x.shape
+# Pad shorter sequences with 0s and cut longer sequences
+tensor_len = max(map(len, mfccs)) // 4
 
+resized = []
+for x in mfccs:
+    res = None
+    if len(x) < tensor_len:
+        res = np.zeros((tensor_len, 13))
+        res[:x.shape[0], :x.shape[1]] = x
+    else:
+        res = np.array(x[:tensor_len])
+    resized.append(res)
+X = np.array(resized)
+X.shape
 # %%
-# Clear mem
-x_list = None
-x_list_padded = None
+# Normalize
+norm = np.linalg.norm(X)
+X = X/norm
 
 # %%
 df = pd.read_csv('dataset/dev_sent_emo.csv')
@@ -49,19 +52,17 @@ y = one_hot.values[:100]
 y.shape
 
 # %%
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+X_train.shape
+
+
+# %%
 model = keras.Sequential()
 model.add(keras.Input(shape=(None, 13)))
 model.add(layers.LSTM(128, return_sequences=True, activation="relu"))
 model.add(layers.LSTM(128))
 model.add(layers.Dense(7))
 model.summary()
-# %%
-x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, random_state=42)
-x_train.shape
-
-# %%
-# Clear mem
-x = None
 
 # %%
 print(model.summary())
@@ -71,6 +72,9 @@ model.compile(
     metrics=["accuracy"],
 )
 # %%
-model.fit(x_train, y_train, batch_size=32, epochs=5)
+model.fit(X_train, y_train, batch_size=32, epochs=5)
 
+# %%
+model.evaluate(X_test, y_test)
+# %%
 # %%
