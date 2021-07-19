@@ -10,6 +10,7 @@ from python_speech_features import mfcc, logfbank
 import vggish_keras as vgk
 
 from sklearn.model_selection import train_test_split
+from imblearn.over_sampling import RandomOverSampler
 
 class Preprocess:
 
@@ -68,3 +69,18 @@ class Preprocess:
         Y = self.one_hot[:num_inputs]
 
         return train_test_split(X, Y, test_size=0.2, random_state=42)
+
+    def resample(self, X, Y, feature_dim):
+        # flatten
+        X_2d = X.reshape(len(X), -1)
+        y = np.array([np.argmax(y_i) for y_i in Y])
+
+        # resample
+        X_2d_resampled, y_resampled = RandomOverSampler(random_state=42).fit_resample(X_2d, y)
+
+        # unflatten
+        X_resampled = X_2d_resampled.reshape(len(X_2d_resampled), -1, feature_dim)
+        Y_resampled = np.zeros((y_resampled.size, 7))
+        Y_resampled[np.arange(y_resampled.size), y_resampled] = 1
+
+        return X_resampled, Y_resampled
