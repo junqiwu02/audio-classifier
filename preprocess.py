@@ -14,9 +14,9 @@ class Preprocess:
 
     def __init__(self):
         # list of wav files
-        self.wav_files = natsort.os_sorted(glob.glob('./dataset/dev_splits_complete/wav/*.wav'))
+        self.wav_files = natsort.os_sorted(glob.glob('./data/dev_splits_complete/wav/*.wav'))
         # emotion one-hot labels
-        df = pd.read_csv('./dataset/dev_sent_emo.csv')
+        df = pd.read_csv('./data/dev_sent_emo.csv')
         self.one_hot = pd.get_dummies(df['Emotion']).values
 
     def get_train_test(self, feature_type, num_inputs):

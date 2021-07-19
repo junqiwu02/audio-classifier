@@ -11,8 +11,8 @@ X_train, X_test, Y_train, Y_test = data.get_train_test('mfcc', 1000)
 
 # %%
 model = keras.Sequential()
-model.add(keras.Input(shape=(None, 13)))
-model.add(layers.LSTM(128, return_sequences=True, activation="relu"))
+model.add(keras.layers.InputLayer(input_shape=(None, 13)))
+model.add(layers.LSTM(128, return_sequences=True, activation="tanh"))
 model.add(layers.LSTM(128))
 model.add(layers.Dense(7))
 print(model.summary())
