@@ -7,6 +7,7 @@ from tqdm.notebook import tqdm
 
 import scipy.io.wavfile as wav
 from python_speech_features import mfcc, logfbank
+import vggish_keras as vgk
 
 from sklearn.model_selection import train_test_split
 
@@ -21,23 +22,29 @@ class Preprocess:
 
     def get_train_test(self, feature_type, num_inputs):
         feature_dim = 0
+        vggish = None
         if feature_type == 'mfcc':
             feature_dim = 13
         elif feature_type == 'logfbank':
             feature_dim = 26
+        elif feature_type == 'vggish':
+            feature_dim = 512
+            vggish = vgk.get_embedding_function(duration=0.1, hop_duration=0.1)
         else:
             print('Invalid feature type')
             return
 
         seqs = []
         for f in tqdm(self.wav_files[:num_inputs]):
-            rate, sig = wav.read(f)
-
             feat = None
             if feature_type == 'mfcc':
+                rate, sig = wav.read(f)
                 feat = mfcc(sig, rate, nfft=1200)
             elif feature_type == 'logfbank':
+                rate, sig = wav.read(f)
                 feat = logfbank(sig, rate, nfft=1200)
+            elif feature_type == 'vggish':
+                _, feat = vggish(f)
 
             seqs.append(feat)
 
