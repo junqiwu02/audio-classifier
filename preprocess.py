@@ -1,62 +1,54 @@
 import numpy as np
 import pandas as pd
 
-import glob
-import natsort
+import os.path
 from tqdm.notebook import tqdm
 
-import scipy.io.wavfile as wav
-from python_speech_features import mfcc, logfbank
 import vggish_keras as vgk
 
-from sklearn.model_selection import train_test_split
 from imblearn.over_sampling import RandomOverSampler
+
+RAND_STATE = 42
+LABELS = {
+    'neutral': 0,
+    'surprise': 1,
+    'fear': 2,
+    'sadness': 3,
+    'joy': 4,
+    'disgust': 5,
+    'anger': 6
+}
+FEATURE_DIM = 512
+VGGISH_DUR = 0.05
+VGGISH_HOP = 0.05
 
 class Preprocess:
 
     def __init__(self):
-        # list of wav files
-        self.wav_files = natsort.os_sorted(glob.glob('./data/dev_splits_complete/wav/*.wav'))
-        # emotion one-hot labels
-        df = pd.read_csv('./data/dev_sent_emo.csv')
-        self.one_hot = pd.get_dummies(df['Emotion']).values
+        self.vggish = vgk.get_embedding_function(duration=VGGISH_DUR, hop_duration=VGGISH_HOP)
 
-    def get_train_test(self, feature_type, num_inputs):
-        feature_dim = 0
-        vggish = None
-        if feature_type == 'mfcc':
-            feature_dim = 13
-        elif feature_type == 'logfbank':
-            feature_dim = 26
-        elif feature_type == 'vggish':
-            feature_dim = 512
-            vggish = vgk.get_embedding_function(duration=0.1, hop_duration=0.1)
-        else:
-            print('Invalid feature type')
-            return
+    def get_data(self, csv_path, wav_path, num_inputs):
+        df = pd.read_csv(csv_path)
 
-        seqs = []
-        for f in tqdm(self.wav_files[:num_inputs]):
-            feat = None
-            if feature_type == 'mfcc':
-                rate, sig = wav.read(f)
-                feat = mfcc(sig, rate, nfft=1200)
-            elif feature_type == 'logfbank':
-                rate, sig = wav.read(f)
-                feat = logfbank(sig, rate, nfft=1200)
-            elif feature_type == 'vggish':
-                _, feat = vggish(f)
+        X = []
+        y = []
+        for _, emo, dia, utt in tqdm(zip(range(num_inputs), df['Emotion'], df['Dialogue_ID'], df['Utterance_ID']), total=num_inputs):
+            file = f'{wav_path}/dia{dia}_utt{utt}.wav'
+            if not os.path.isfile(file):
+                print(f'{file} does not exist! Skipping...')
 
-            seqs.append(feat)
+            _, feat = self.vggish(file)
+            X.append(feat)
+            y.append(LABELS[emo])
 
         # resize all sequences to the avg length
-        tensor_len = sum(map(len, seqs)) // len(seqs)
+        tensor_len = sum(map(len, X)) // len(X)
 
         resized = []
-        for x in seqs:
+        for x in X:
             res = None
             if len(x) < tensor_len:
-                res = np.zeros((tensor_len, feature_dim))
+                res = np.zeros((tensor_len, FEATURE_DIM))
                 res[:x.shape[0], :x.shape[1]] = x
             else:
                 res = np.array(x[:tensor_len])
@@ -66,21 +58,20 @@ class Preprocess:
         # normalize
         X = X / np.linalg.norm(X)
 
-        Y = self.one_hot[:num_inputs]
+        return X, y
 
-        return train_test_split(X, Y, test_size=0.2, random_state=42)
-
-    def resample(self, X, Y, feature_dim):
+    def resample(self, X, y):
         # flatten
-        X_2d = X.reshape(len(X), -1)
-        y = np.array([np.argmax(y_i) for y_i in Y])
+        X = X.reshape(len(X), -1)
 
-        # resample
-        X_2d_resampled, y_resampled = RandomOverSampler(random_state=42).fit_resample(X_2d, y)
+        X, y = RandomOverSampler(random_state=RAND_STATE).fit_resample(X, y)
+        X = X.reshape(len(X), -1, FEATURE_DIM)
 
-        # unflatten
-        X_resampled = X_2d_resampled.reshape(len(X_2d_resampled), -1, feature_dim)
-        Y_resampled = np.zeros((y_resampled.size, 7))
-        Y_resampled[np.arange(y_resampled.size), y_resampled] = 1
+        return X, y
 
-        return X_resampled, Y_resampled
+    def one_hot(self, y):
+        Y = np.zeros((len(y), len(LABELS)))
+        Y[np.arange(len(y)), y] = 1
+
+        return Y
+
