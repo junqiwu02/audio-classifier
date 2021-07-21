@@ -27,19 +27,21 @@ class Preprocess:
     def __init__(self):
         self.vggish = vgk.get_embedding_function(duration=VGGISH_DUR, hop_duration=VGGISH_HOP)
 
-    def get_data(self, csv_path, wav_path, num_inputs):
+    def get_data(self, csv_path, wav_path, max_inputs=None):
         df = pd.read_csv(csv_path)
+        num_inputs = df.shape[0] if not max_inputs else min(max_inputs, df.shape[0])
 
         X = []
         y = []
         for _, emo, dia, utt in tqdm(zip(range(num_inputs), df['Emotion'], df['Dialogue_ID'], df['Utterance_ID']), total=num_inputs):
             file = f'{wav_path}/dia{dia}_utt{utt}.wav'
-            if not os.path.isfile(file):
-                print(f'{file} does not exist! Skipping...')
 
-            _, feat = self.vggish(file)
-            X.append(feat)
-            y.append(LABELS[emo])
+            try:
+                _, feat = self.vggish(file)
+                X.append(feat)
+                y.append(LABELS[emo])
+            except FileNotFoundError:
+                print(f'{file} not found! Skipping...')
 
         # resize all sequences to the avg length
         tensor_len = sum(map(len, X)) // len(X)
