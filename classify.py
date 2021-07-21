@@ -1,31 +1,32 @@
 # %%
-from preprocess import Preprocess
+from preprocess import *
 import analysis
 
 from tensorflow import keras
-from tensorflow.keras import layers
-import pickle
+from tensorflow.keras.layers import InputLayer, Bidirectional, LSTM, Dense, TimeDistributed
 
 # %%
 # data = Preprocess()
 # X_train, y_train = data.get_data('./data/train_sent_emo.csv', './data/train_splits/wav')
 
 # %%
-# with open('./data/x_train_vggish.pkl', 'wb') as X_train_pickle:
-#     pickle.dump(X_train, X_train_pickle)
-# with open('./data/y_train_vggish.pkl', 'wb') as y_train_pickle:
-#     pickle.dump(y_train, y_train_pickle)
+X_train = pickle_load('./data/x_train_vggish.pkl')
 
 # %%
-X_train, y_train = data.resample(X_train, y_train)
-y_train = data.one_hot(y_train)
+y_train = pickle_load('./data/y_train_vggish.pkl')
+
+# %%
+sample_weight = get_sample_weight(y_train)
+
+# %%
+y_train = one_hot(y_train)
 
 # %%
 model = keras.Sequential()
-model.add(keras.layers.InputLayer(input_shape=(None, 512)))
-model.add(layers.LSTM(128, return_sequences=True, activation="tanh"))
-model.add(layers.LSTM(128))
-model.add(layers.Dense(7))
+model.add(InputLayer(input_shape=(None, 512)))
+model.add(Bidirectional(LSTM(300, return_sequences=True, activation="tanh", dropout=0.4)))
+model.add(Bidirectional(LSTM(300, activation="tanh", dropout=0.4)))
+model.add(Dense(7))
 print(model.summary())
 
 # %%
@@ -36,19 +37,17 @@ model.compile(
 )
 
 # %%
-model.fit(X_train, y_train, batch_size=64, epochs=100)
+model.fit(X_train, y_train, sample_weight=sample_weight, batch_size=50, epochs=100)
 
 # %%
 # X_test, y_test = data.get_data('./data/test_sent_emo.csv', './data/output_repeated_splits_test/wav')
 
 # %%
-# with open('./data/x_test_vggish.pkl', 'wb') as X_test_pickle:
-#     pickle.dump(X_test, X_test_pickle)
-# with open('./data/y_test_vggish.pkl', 'wb') as y_test_pickle:
-#     pickle.dump(y_test, y_test_pickle)
+X_test = pickle_load('./data/x_test_vggish.pkl')
+y_test = pickle_load('./data/y_test_vggish.pkl')
 
 # %%
-y_test = data.one_hot(y_test)
+y_test = one_hot(y_test)
 
 # %%
 analysis.show_stats(y_test, model.predict(X_test))
