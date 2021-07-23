@@ -6,7 +6,7 @@ from tqdm.notebook import tqdm
 
 import vggish_keras as vgk
 
-from imblearn.over_sampling import RandomOverSampler
+from imblearn.over_sampling import RandomOverSampler, SMOTE
 from sklearn.utils import class_weight
 
 RAND_STATE = 42
@@ -23,11 +23,17 @@ FEATURE_DIM = 512
 VGGISH_DUR = 0.05
 VGGISH_HOP = 0.05
 
-def resample(X, y):
+def resample(X, y, technique='random'):
     # flatten
     X = X.reshape(len(X), -1)
 
-    X, y = RandomOverSampler(random_state=RAND_STATE).fit_resample(X, y)
+    if technique == 'random':
+        X, y = RandomOverSampler(random_state=RAND_STATE).fit_resample(X, y)
+    elif technique == 'smote':
+        X, y = SMOTE(random_state=RAND_STATE, n_jobs=-1).fit_resample(X, y)
+    else:
+        print('Invalid resampling technique')
+        return
     X = X.reshape(len(X), -1, FEATURE_DIM)
 
     return X, y
